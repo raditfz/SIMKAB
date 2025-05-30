@@ -1,6 +1,14 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { db, auth } from "../firebase";
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+} from "firebase/firestore";
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from "firebase/auth";
 import PenggajianTambah from "../modal/PenggajianTambah";
@@ -56,7 +64,6 @@ const ManajerPenggajian = () => {
         })
       );
       setPaymentHistory(Object.fromEntries(paymentResults));
-    } catch (error) {
     } finally {
       setLoading(false);
     }
@@ -129,30 +136,41 @@ const ManajerPenggajian = () => {
       });
 
       let totalLateMinutes = 0;
+      let totalOvertimeMinutes = 0;
+      let totalWorkMinutes = 0;
       for (const docSnap of employeeAttendance) {
         const attendance = docSnap.data();
-        if (attendance.waktuTelat && typeof attendance.waktuTelat === 'number') {
+        if (typeof attendance.waktuTelat === 'number') {
           totalLateMinutes += attendance.waktuTelat;
+        }
+        if (typeof attendance.lembur === 'number') {
+          totalOvertimeMinutes += attendance.lembur;
+        }
+        if (typeof attendance.totalJamKerja === 'number') {
+          totalWorkMinutes += attendance.totalJamKerja;
         }
       }
 
       const employee = employees.find(emp => emp.id === employeeId);
       const gajiAwal = employee?.gajiKaryawan || 0;
       const totalPotongan = potonganPerMenit * totalLateMinutes;
-      const gajiTotalSementara = gajiAwal - totalPotongan;
+      const bonusLembur = potonganPerMenit * totalOvertimeMinutes;
+      const gajiTotalSementara = gajiAwal - totalPotongan + bonusLembur;
       const gajiTotal = gajiTotalSementara + nilaiKoreksi;
 
       await updateDoc(doc(db, `dataKaryawan/${employeeId}/Penggajian/${payment.id}`), {
         totalWaktuTelat: totalLateMinutes,
+        totalWaktuLembur: totalOvertimeMinutes,
+        totalJamKerja: totalWorkMinutes,
         potonganPerMenit: potonganPerMenit,
         gajiTotalSementara,
         gajiTotal,
         nilaiKoreksi
       });
 
-      return { totalLateMinutes, gajiTotalSementara, gajiTotal };
+      return { totalLateMinutes, totalOvertimeMinutes, totalWorkMinutes, gajiTotalSementara, gajiTotal };
     } catch (e) {
-      alert("Gagal menghitung telat dan terhitung");
+      alert("Gagal menghitung telat, lembur, dan jam kerja");
       return null;
     }
   };
@@ -199,7 +217,7 @@ const ManajerPenggajian = () => {
     try {
       await deleteDoc(doc(db, `dataKaryawan/${employeeId}/Penggajian/${paymentId}`));
       fetchData();
-    } catch (e) {
+    } catch {
       alert("Gagal menghapus data!");
     } finally {
       setDeletingPayment(prev => ({ ...prev, [paymentId]: false }));
@@ -222,7 +240,11 @@ const ManajerPenggajian = () => {
       <div className="row g-3">
         {employees.map((employee) => (
           <React.Fragment key={employee.id}>
-            <div className={`border rounded p-3 mb-1 ${expandedEmployee === employee.id ? "bg-light" : ""}`} style={{ cursor: "pointer" }} onClick={() => toggleExpand(employee.id)}>
+            <div
+              className={`border rounded p-3 mb-1 ${expandedEmployee === employee.id ? "bg-light" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => toggleExpand(employee.id)}
+            >
               <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                   <div className="fw-bold text-uppercase">{employee.namaKaryawan}</div>
@@ -241,7 +263,9 @@ const ManajerPenggajian = () => {
                       <thead className="table-light">
                         <tr>
                           <th style={{ minWidth: 60 }}>PERIODE</th>
+                          <th style={{ minWidth: 45 }}>JAM KERJA</th>
                           <th style={{ minWidth: 40 }}>TELAT</th>
+                          <th style={{ minWidth: 40 }}>LEMBUR</th>
                           <th style={{ minWidth: 70 }}>POTONGAN</th>
                           <th style={{ minWidth: 90 }}>TERHITUNG</th>
                           <th style={{ minWidth: 68 }}>KOREKSI</th>
@@ -253,42 +277,62 @@ const ManajerPenggajian = () => {
                       <tbody>
                         {(paymentHistory[employee.id] || []).map((payment) => {
                           const potonganPerMenit = payment.potonganPerMenit || 0;
-                          const totalWaktuTelat = payment.totalWaktuTelat || 0;
+                          const totalLate = payment.totalWaktuTelat || 0;
+                          const totalOvertime = payment.totalWaktuLembur || 0;
+                          const totalWork = payment.totalJamKerja || 0;
                           const gajiAwal = employee.gajiKaryawan || 0;
-                          const totalPotongan = potonganPerMenit * totalWaktuTelat;
-                          const gajiTotalSementara = gajiAwal - totalPotongan;
+                          const totalPotongan = potonganPerMenit * totalLate;
+                          const bonusLembur = potonganPerMenit * totalOvertime;
+                          const terhitung = gajiAwal - totalPotongan + bonusLembur;
                           return (
                             <tr key={payment.id}>
-                              <td className="text-nowrap">{formatDate(payment.tanggalMulai)} - {formatDate(payment.tanggalPembayaran)}</td>
-                              <td>{totalWaktuTelat}</td>
+                              <td className="text-nowrap">
+                                {formatDate(payment.tanggalMulai)} - {formatDate(payment.tanggalPembayaran)}
+                              </td>
+                              <td>
+                                {totalWork
+                                  ? `${Math.floor(totalWork / 60)}j ${totalWork % 60}m (${totalWork}m)`
+                                  : "-"}
+                              </td>
+                              <td>{totalLate}</td>
+                              <td>{totalOvertime}</td>
                               <td>
                                 {payment.statusPembayaran
-                                  ? <span>{payment.potonganPerMenit ?? "-"}</span>
+                                  ? <span>{potonganPerMenit}</span>
                                   : editingPotongan[payment.id] ? (
                                     <>
-                                      <input type="number" className="form-control form-control-sm d-inline w-auto"
+                                      <input
+                                        type="number"
+                                        className="form-control form-control-sm d-inline w-auto"
                                         value={inputPotongan[payment.id]}
                                         onChange={e => setInputPotongan(prev => ({ ...prev, [payment.id]: e.target.value }))}
                                         style={{ width: 38 }}
                                         onClick={e => e.stopPropagation()}
                                       />
-                                      <button className="btn btn-sm btn-success ms-1" onClick={(e) => { e.stopPropagation(); savePotongan(employee.id, payment); }}>✓</button>
-                                      <button className="btn btn-sm btn-secondary ms-1" onClick={(e) => { e.stopPropagation(); setEditingPotongan(prev => ({ ...prev, [payment.id]: false })); }}>✗</button>
+                                      <button
+                                        className="btn btn-sm btn-success ms-1"
+                                        onClick={e => { e.stopPropagation(); savePotongan(employee.id, payment); }}
+                                      >✓</button>
+                                      <button
+                                        className="btn btn-sm btn-secondary ms-1"
+                                        onClick={e => { e.stopPropagation(); setEditingPotongan(prev => ({ ...prev, [payment.id]: false })); }}
+                                      >✗</button>
                                     </>
                                   ) : (
                                     <span style={{ display: "flex", alignItems: "center" }}>
-                                      {payment.potonganPerMenit ?? "-"}
+                                      {potonganPerMenit}
                                       {!payment.statusPembayaran && (
-                                        <button className="btn btn-sm btn-link text-primary ms-2" onClick={(e) => { e.stopPropagation(); handleEditPotongan(payment, true); }}>
-                                          +
-                                        </button>
+                                        <button
+                                          className="btn btn-sm btn-link text-primary ms-2"
+                                          onClick={e => { e.stopPropagation(); handleEditPotongan(payment, true); }}
+                                        >+</button>
                                       )}
                                     </span>
                                   )}
                               </td>
                               <td>
                                 <span className="ms-2">
-                                  Rp. {gajiTotalSementara != null ? gajiTotalSementara.toLocaleString("id-ID") : "-"}
+                                  Rp. {terhitung.toLocaleString("id-ID")}
                                 </span>
                               </td>
                               <td>
@@ -296,28 +340,37 @@ const ManajerPenggajian = () => {
                                   ? <span>{payment.nilaiKoreksi ?? "-"}</span>
                                   : editingKoreksi[payment.id] ? (
                                     <>
-                                      <input type="number" className="form-control form-control-sm d-inline w-auto"
+                                      <input
+                                        type="number"
+                                        className="form-control form-control-sm d-inline w-auto"
                                         value={inputKoreksi[payment.id]}
                                         onChange={e => setInputKoreksi(prev => ({ ...prev, [payment.id]: e.target.value }))}
                                         style={{ width: 38 }}
                                         onClick={e => e.stopPropagation()}
                                       />
-                                      <button className="btn btn-sm btn-success ms-1" onClick={(e) => { e.stopPropagation(); saveKoreksi(employee.id, payment); }}>✓</button>
-                                      <button className="btn btn-sm btn-secondary ms-1" onClick={(e) => { e.stopPropagation(); setEditingKoreksi(prev => ({ ...prev, [payment.id]: false })); }}>✗</button>
+                                      <button
+                                        className="btn btn-sm btn-success ms-1"
+                                        onClick={e => { e.stopPropagation(); saveKoreksi(employee.id, payment); }}
+                                      >✓</button>
+                                      <button
+                                        className="btn btn-sm btn-secondary ms-1"
+                                        onClick={e => { e.stopPropagation(); setEditingKoreksi(prev => ({ ...prev, [payment.id]: false })); }}
+                                      >✗</button>
                                     </>
                                   ) : (
                                     <span style={{ display: "flex", alignItems: "center" }}>
                                       {payment.nilaiKoreksi ?? "-"}
                                       {!payment.statusPembayaran && (
-                                        <button className="btn btn-sm btn-link text-primary ms-2" onClick={(e) => { e.stopPropagation(); handleEditKoreksi(payment, true); }}>
-                                          +
-                                        </button>
+                                        <button
+                                          className="btn btn-sm btn-link text-primary ms-2"
+                                          onClick={e => { e.stopPropagation(); handleEditKoreksi(payment, true); }}
+                                        >+</button>
                                       )}
                                     </span>
                                   )}
                               </td>
                               <td className="text-nowrap">
-                                Rp. {payment.gajiTotal != null ? payment.gajiTotal.toLocaleString("id-ID") : "-"}
+                                Rp. {payment.gajiTotal?.toLocaleString("id-ID") || "-"}
                               </td>
                               <td>
                                 <span className={`badge ${payment.statusPembayaran ? 'bg-success' : 'bg-warning text-dark'}`}>
@@ -331,28 +384,22 @@ const ManajerPenggajian = () => {
                                       <button
                                         className="btn btn-sm btn-outline-dark"
                                         style={{ minWidth: 44 }}
-                                        onClick={(e) => { e.stopPropagation(); handleShowVerification(employee.id, payment, e); }}
-                                      >
-                                        Bayar
-                                      </button>
+                                        onClick={e => { e.stopPropagation(); handleShowVerification(employee.id, payment, e); }}
+                                      >Bayar</button>
                                       <button
                                         className="btn btn-sm btn-outline-danger"
                                         style={{ minWidth: 44 }}
                                         disabled={deletingPayment[payment.id]}
-                                        onClick={(e) => { e.stopPropagation(); handleDeletePayment(employee.id, payment.id); }}
-                                      >
-                                        {deletingPayment[payment.id] ? '...' : 'Hapus'}
-                                      </button>
+                                        onClick={e => { e.stopPropagation(); handleDeletePayment(employee.id, payment.id); }}
+                                      >{deletingPayment[payment.id] ? '...' : 'Hapus'}</button>
                                     </>
                                   )}
                                   {payment.statusPembayaran && (
                                     <button
                                       className="btn btn-sm btn-outline-secondary"
                                       style={{ minWidth: 44 }}
-                                      onClick={(e) => { e.stopPropagation(); handleShowEdit(employee.id, payment, e); }}
-                                    >
-                                      Ubah
-                                    </button>
+                                      onClick={e => { e.stopPropagation(); handleShowEdit(employee.id, payment, e); }}
+                                    >Ubah</button>
                                   )}
                                 </div>
                               </td>
@@ -366,12 +413,11 @@ const ManajerPenggajian = () => {
                     <button
                       className="btn btn-outline-primary"
                       style={{ width: "12%" }}
-                      onClick={(e) => { e.stopPropagation(); handleShowAdd(employee.id, e); }}
-                    >
-                      + Tambah
-                    </button>
+                      onClick={e => { e.stopPropagation(); handleShowAdd(employee.id, e); }}
+                    >+ Tambah</button>
                   </div>
                 </div>
+
                 {modalState.type === "add" && modalState.employeeId === employee.id && (
                   <PenggajianTambah
                     employeeId={modalState.employeeId}
@@ -389,7 +435,7 @@ const ManajerPenggajian = () => {
                 )}
                 {modalState.type === "edit" && modalState.employeeId === employee.id && modalState.payment && (
                   <PenggajianUbah
-                    show={true}
+                    show
                     payment={modalState.payment}
                     employeeId={modalState.employeeId}
                     onPaymentUpdated={handlePaymentUpdated}

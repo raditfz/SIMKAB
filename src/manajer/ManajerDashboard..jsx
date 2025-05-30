@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import 'bootstrap/dist/css/bootstrap.min.css';
 
 const ManajerDashboard = () => {
   const [managerData, setManagerData] = useState(null);
@@ -37,13 +34,15 @@ const ManajerDashboard = () => {
 
   useEffect(() => {
     const today = new Date();
-    setCurrentDate(today.toLocaleDateString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'Asia/Jakarta',
-    }));
+    setCurrentDate(
+      today.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Jakarta',
+      })
+    );
   }, []);
 
   useEffect(() => {
@@ -66,12 +65,21 @@ const ManajerDashboard = () => {
           const kehadiranSnapshot = await getDocs(q);
           return kehadiranSnapshot.docs.map(docSnap => {
             const data = docSnap.data();
+            // gunakan field timestamp baru
+            const mulaiTs = data.mulaiKerja?.toDate();
+            const selesaiTs = data.selesaiKerja?.toDate();
+            const waktuKerja = mulaiTs
+              ? mulaiTs.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+              : null;
+            const waktuSelesai = selesaiTs
+              ? selesaiTs.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+              : null;
             return {
               id: `${karyawanId}_${docSnap.id}`,
               karyawanNama: namaKaryawan,
               tanggalKerja: data.tanggalKerja,
-              waktuKerja: data.waktuKerja,
-              waktuSelesai: data.waktuSelesai,
+              waktuKerja,
+              waktuSelesai,
               statusHadir: data.statusHadir,
             };
           });
@@ -82,11 +90,7 @@ const ManajerDashboard = () => {
 
         setTotalJadwalHariIni(semuaJadwalHariIni.length);
         setJumlahHadirHariIni(semuaJadwalHariIni.filter(item => item.statusHadir).length);
-        setListKehadiranHariIni(
-          semuaJadwalHariIni.map(({ id, karyawanNama, tanggalKerja, waktuKerja, waktuSelesai, statusHadir }) => ({
-            id, karyawanNama, tanggalKerja, waktuKerja, waktuSelesai, statusHadir
-          }))
-        );
+        setListKehadiranHariIni(semuaJadwalHariIni);
       } catch (error) {
         setTotalJadwalHariIni(0);
         setJumlahHadirHariIni(0);
@@ -115,23 +119,21 @@ const ManajerDashboard = () => {
 
   return (
     <div className="container mt-4">
-      <div className="row">
+      {/* Salam manager */}
+      <div className="row mb-4">
         <div className="col-12">
           <div className="card text-white bg-primary mb-4">
             <div className="card-body">
-              <div className="d-flex align-items-center">
-                <div>
-                  <p className="card-text text-white mb-1">Selamat Datang,</p>
-                  <h2 className="fw-bold">{managerData?.nama || '-'}</h2>
-                </div>
-              </div>
+              <p className="card-text mb-1">Selamat Datang,</p>
+              <h2 className="fw-bold">{managerData?.nama || '-'}</h2>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Tanggal dan grafik */}
       <div className="row mb-4">
-        <div className="col-12 col-md-6 mb-4 mb-md-0">
+        <div className="col-md-6 mb-3">
           <div className="card h-100">
             <div className="card-body">
               <h5 className="card-title">Tanggal Hari Ini</h5>
@@ -139,23 +141,19 @@ const ManajerDashboard = () => {
             </div>
           </div>
         </div>
-
-        <div className="col-12 col-md-6">
+        <div className="col-md-6">
           <div className="card h-100">
             <div className="card-body">
               <h5 className="card-title">Grafik Kehadiran Hari Ini</h5>
-              <p>
-                Hadir {jumlahHadirHariIni} / {totalJadwalHariIni}
-              </p>
-              <div className="progress mb-3" style={{ height: '20px' }}>
+              <p>Hadir {jumlahHadirHariIni} / {totalJadwalHariIni}</p>
+              <div className="progress" style={{ height: '20px' }}>
                 <div
                   className="progress-bar bg-success"
                   role="progressbar"
                   style={{
-                    width:
-                      totalJadwalHariIni > 0
-                        ? `${(jumlahHadirHariIni / totalJadwalHariIni) * 100}%`
-                        : '0%',
+                    width: totalJadwalHariIni > 0
+                      ? `${(jumlahHadirHariIni / totalJadwalHariIni) * 100}%`
+                      : '0%',
                   }}
                   aria-valuenow={jumlahHadirHariIni}
                   aria-valuemin="0"
@@ -163,8 +161,7 @@ const ManajerDashboard = () => {
                 >
                   {totalJadwalHariIni > 0
                     ? Math.round((jumlahHadirHariIni / totalJadwalHariIni) * 100)
-                    : 0}
-                  %
+                    : 0}%
                 </div>
               </div>
             </div>
@@ -172,25 +169,26 @@ const ManajerDashboard = () => {
         </div>
       </div>
 
+      {/* Daftar kehadiran hari ini */}
       {listKehadiranHariIni.length > 0 && (
         <div className="mb-5">
-          <h5 className="mb-3 fw-bold">Daftar Jadwal Kehadiran Hari Ini</h5>
+          <h5 className="fw-bold mb-3">Daftar Jadwal Kehadiran Hari Ini</h5>
           <div className="row">
-            {listKehadiranHariIni.map((item) => (
-              <div key={item.id} className="col-12 col-md-6 col-lg-4 mb-3">
+            {listKehadiranHariIni.map(item => (
+              <div key={item.id} className="col-lg-4 col-md-6 mb-3">
                 <div className="card border-secondary h-100">
                   <div className="card-body">
                     <h6 className="fw-bold text-uppercase">{item.karyawanNama}</h6>
-                    <div className="mb-0">
+                    <p className="mb-0">
                       <span className="fw-semibold">Jam: </span>
                       {item.waktuKerja && item.waktuSelesai
                         ? `${item.waktuKerja} - ${item.waktuSelesai}`
                         : item.waktuKerja || '-'}
-                    </div>
-                    <div className="mb-1">
+                    </p>
+                    <p className="mb-1">
                       <span className="fw-semibold">Status: </span>
                       {item.statusHadir ? 'Hadir' : 'Tidak Hadir'}
-                    </div>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -199,8 +197,9 @@ const ManajerDashboard = () => {
         </div>
       )}
 
-      <div className="text-center mt-4 mb-5">
-        <button className="btn btn-danger mb-5" onClick={handleLogout}>
+      {/* Logout */}
+      <div className="text-center mb-5">
+        <button className="btn btn-danger" onClick={handleLogout}>
           Logout
         </button>
       </div>

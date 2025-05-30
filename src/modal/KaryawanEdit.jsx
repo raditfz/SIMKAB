@@ -90,7 +90,6 @@ const KaryawanEdit = ({
       fetchEmployees();
     };
 
-
     return isOpen ? (
     <div className="modal show" style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="modal-dialog modal-dialog-centered">

@@ -13,7 +13,6 @@ const Kehadiran = lazy(() => import("./manajer/ManajerKehadiran.jsx"));
 const Penggajian = lazy(() => import("./manajer/ManajerPenggajian.jsx"));
 const Karyawan = lazy(() => import("./manajer/ManajerKaryawan.jsx"));
 const ResetPassword = lazy(() => import("./auth/ResetPassword.jsx"));
-const KehadiranTambah = lazy(() => import("./modal/KehadiranTambah.jsx"));
 const JadwalKaryawan = lazy(() => import("./karyawan/KaryawanJadwal.jsx"));
 const PenggajianKaryawan = lazy(() => import("./karyawan/KaryawanPenggajian.jsx"));
 const ManajerArsipKehadiran = lazy(() => import("./manajer/ManajerArsipKehadiran.jsx"));
@@ -40,33 +39,39 @@ function Layout() {
       <div
         className="content flex-grow-1"
         style={{
-          marginLeft: hideSidebar ? "0" : "25%",
+          marginLeft: hideSidebar ? "0" : "18%",
           padding: "0px",
-          width: hideSidebar ? "100%" : "70%",
+          width: hideSidebar ? "100%" : "78%",
         }}
       >
         <Suspense fallback={<div className="text-center my-5">Memuat halaman...</div>}>
           <Routes>
-          <Route path="/" element={<Navigate replace to="/HomeManajer" />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/loginKaryawan" element={<LoginPageKaryawan />} />
-          <Route path="/ResetPassword" element={<ResetPassword />} />
-          <Route path="/HomeManajer" element={<RequireAuth role="manajer"><HomeManajer /></RequireAuth>}/>
-          <Route path="/Kehadiran" element={<RequireAuth role="manajer"><Kehadiran /></RequireAuth>} />
-          <Route path="/KehadiranTambah" element={<RequireAuth role="manajer"><KehadiranTambah /></RequireAuth>} />
-          <Route path="/Penggajian" element={<RequireAuth role="manajer"><Penggajian /></RequireAuth>} />
-          <Route path="/Karyawan" element={<RequireAuth role="manajer"><Karyawan /></RequireAuth>} />
-          <Route path="/Karyawan/:username" element={<RequireAuth role="manajer"><KaryawanData /></RequireAuth>} />
-          <Route path="/Arsip" element={<RequireAuth role="manajer"><ManajerArsipKehadiran /></RequireAuth>} />
-          <Route path="/Rekap" element={<RequireAuth role="manajer"><ManajerArsipPenggajian /></RequireAuth>} />
-
-          <Route path="/HomeKaryawan" element={<HomeKaryawan />} />
-          <Route path="/JadwalKaryawan" element={<JadwalKaryawan />} />
-          <Route path="/PenggajianKaryawan" element={<PenggajianKaryawan />} />
+            <Route path="/" element={<Navigate replace to="/HomeManajer" />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/loginKaryawan" element={<LoginPageKaryawan />} />
+            <Route path="/ResetPassword" element={<ResetPassword />} />
+            <Route path="/HomeManajer" element={<RequireAuth role="manajer"><HomeManajer /></RequireAuth>}/>
+            <Route path="/Kehadiran" element={<RequireAuth role="manajer"><Kehadiran /></RequireAuth>} />
+            <Route path="/Penggajian" element={<RequireAuth role="manajer"><Penggajian /></RequireAuth>} />
+            <Route path="/Karyawan" element={<RequireAuth role="manajer"><Karyawan /></RequireAuth>} />
+            <Route path="/Karyawan/:username" element={<RequireAuth role="manajer"><KaryawanData /></RequireAuth>} />
+            <Route path="/Arsip" element={<RequireAuth role="manajer"><ManajerArsipKehadiran /></RequireAuth>} />
+            <Route path="/Rekap" element={<RequireAuth role="manajer"><ManajerArsipPenggajian /></RequireAuth>} />
+            <Route path="/HomeKaryawan" element={<HomeKaryawan />} />
+            <Route path="/JadwalKaryawan" element={<JadwalKaryawan />} />
+            <Route path="/PenggajianKaryawan" element={<PenggajianKaryawan />} />
           </Routes>
         </Suspense>
       </div>
       {showFooterBar && <FooterBar />}
+      <style>{`
+        @media print {
+          .content {
+            margin-left: 0 !important;
+            width: 100% !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

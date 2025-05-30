@@ -184,7 +184,7 @@ const ManajerKaryawan = () => {
   return (
     <div className="container my-4">
       <h3 className="text-center fw-bold mb-3">DAFTAR KARYAWAN</h3>
-      <div className="alert alert-warning text-dark text-center mb-4" style={{ fontSize: '0.95rem' }}>
+      <div className="alert alert-warning text-dark text-center mb-3 p-2" style={{ fontSize: '0.97rem', fontWeight: "500" }}>
         Tambahkan foto karyawan untuk bisa presensi dengan alat
       </div>
       <div className="text-center mb-4">
@@ -246,16 +246,15 @@ const ManajerKaryawan = () => {
                 <div
                   style={{
                     position: "absolute",
-                    right: 6,
-                    bottom: 0,
-                    zIndex: 2,
+                    right: 0,
+                    top: 0,
+                    zIndex: 1,
                     background: "#ffe066",
                     color: "#674c00",
-                    borderRadius: 5,
-                    fontWeight: 500,
-                    fontSize: isMobileView ? "0.82rem" : "0.9rem",
-                    padding: isMobileView ? "6px 12px" : "7px 16px",
-                    boxShadow: "0 2px 6px rgba(120,100,0,0.07)",
+                    borderRadius: 4,
+                    fontWeight: 550,
+                    fontSize: isMobileView ? "0.8rem" : "0.8rem",
+                    padding: isMobileView ? "2px 10px" : "2px 10px",
                     maxWidth: isMobileView ? 180 : 320,
                     textAlign: "center",
                   }}

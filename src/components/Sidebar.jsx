@@ -5,7 +5,7 @@ const Sidebar = () => {
   const location = useLocation(); // Dapatkan path saat ini
 
   const sidebarStyle = {
-    width: "250px",
+    width: "220px",
     height: "100vh",
     position: "fixed",
     top: "0",
@@ -48,7 +48,7 @@ const Sidebar = () => {
       {/* Header Sidebar */}
       <div style={headerStyle}>
         <h2 style={{ fontSize: "24px", fontWeight: "bold" }}>SIMKAB</h2>
-        <p style={{ fontSize: "14px" }}>Sistem Manajemen Cafe B.di.M</p>
+        <p style={{ fontSize: "12px" }}>SISTEM MANAJEMEN KARYAWAN</p>
       </div>
 
       {/* Navigasi */}
